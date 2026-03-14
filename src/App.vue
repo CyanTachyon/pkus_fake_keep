@@ -47,8 +47,8 @@ const mapOffsetY = ref(0);
 
 // 跑步轨迹生成（操场区域，基于 480x360 图片坐标）
 function generateRoute() {
-  const cx = 248, cy = 175;
-  const halfWidth = 65;      // 半圆半径（= 跑道半宽）
+  const cx = 243, cy = 180;
+  const halfWidth = 70;      // 半圆半径（= 跑道半宽）
   const straightHalf = 30;   // 直道半长
   const straightLen = 2 * straightHalf;
   const semiArc = Math.PI * halfWidth;
