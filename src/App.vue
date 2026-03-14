@@ -244,7 +244,7 @@ const generateRecord = async () => {
 
   try {
     const isPast = new Date(apiDate) < new Date(new Date().setHours(0,0,0,0));
-    const baseUrl = isPast ? '/weather/v1/archive' : '/weather/v1/forecast';
+    const baseUrl = isPast ? '/weather/v1/archive' : '/weather/v1/era5';
     const url = `${baseUrl}?latitude=39.9042&longitude=116.4074&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=Asia/Shanghai&start_date=${apiDate}&end_date=${apiDate}`;
     
     const res = await fetch(url);
@@ -543,8 +543,8 @@ onUnmounted(() => {
     <!-- Configuration Panel -->
     <div class="config-panel">
       <h2 class="panel-title">运行记录配置</h2>
-      <a class="author-link" href="https://www.tachyon.moe" target="_blank">作者：CyanTachyon</a>
-      <a class="author-link" href="https://www.tachyon.moe/posts/pkus-fake-keep" target="_blank">项目说明</a>
+      <a class="author-link" href="https://www.tachyon.moe" target="_blank">作者：CyanTachyon（点击查看）</a>
+      <a class="author-link" href="https://www.tachyon.moe/posts/pkus-fake-keep" target="_blank">项目说明（点击查看）</a>
       <div class="config-group">
         <label>头像</label>
         <div class="avatar-upload">
