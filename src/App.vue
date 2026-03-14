@@ -544,6 +544,7 @@ onUnmounted(() => {
     <div class="config-panel">
       <h2 class="panel-title">运行记录配置</h2>
       <a class="author-link" href="https://www.tachyon.moe" target="_blank">作者：CyanTachyon</a>
+      <a class="author-link" href="https://www.tachyon.moe/posts/pkus-fake-keep" target="_blank">项目说明</a>
       <div class="config-group">
         <label>头像</label>
         <div class="avatar-upload">
