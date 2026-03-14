@@ -410,8 +410,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Scrollable Area -->
-        <div class="scroll-area">
+        <div>
           <!-- User Info Section -->
           <div class="user-info">
             <div class="avatar">
@@ -936,21 +935,6 @@ onUnmounted(() => {
   border-radius: 12px;
   font-size: 11px;
   color: #000000;
-}
-
-.scroll-area {
-  flex: 1;
-  overflow-y: auto;
-  padding-bottom: 80px; /* Space for sticky button */
-}
-
-/* Hide scrollbar for cleaner look */
-.scroll-area::-webkit-scrollbar {
-  display: none;
-}
-.scroll-area {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
 }
 
 .user-info {
