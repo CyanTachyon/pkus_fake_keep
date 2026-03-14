@@ -41,6 +41,66 @@ const avgStride = ref('0.69');
 const avgPower = ref('0');
 const avgGroundContactTime = ref('0');
 
+// --- 状态栏随机化：各元素独立随机组合 ---
+const carriers = ['中国移动', '中国联通', '中国电信'];
+
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+const randomPhone = () => {
+  // 信号条：随机起始高度 + 递增步长
+  const base = 3 + Math.random() * 2;        // 3–5
+  const step = 2.5 + Math.random() * 1;      // 2.5–3.5
+  const signalBars = [0, 1, 2, 3].map(i => Math.round(base + step * i));
+
+  const barWidth = pick([2.5, 3, 3, 3.5]);
+  const barGap = pick([1, 1, 1.5, 1.5, 2]);
+  const barRadius = pick([0, 0.5, 0.5, 1, 1]);
+
+  // 连接类型：15% WiFi，其余 4G/5G
+  const isWifi = Math.random() < 0.15;
+  const showWifi = isWifi;
+  const networkType = isWifi ? '' : pick(['4G', '5G', '5G']);
+
+  // 运营商：20% 显示在左侧
+  const hasCarrier = Math.random() < 0.2;
+  const carrierPosition = hasCarrier ? 'left' : 'none';
+  const carrier = hasCarrier ? pick(carriers) : '';
+
+  // 电池样式独立随机
+  const batteryShowBorder = Math.random() < 0.7;
+  const batteryPercentPos = pick(['none', 'none', 'outside', 'outside', 'inside']);
+  const batteryPercentSign = batteryPercentPos !== 'none' ? Math.random() < 0.6 : false;
+
+  // 时间字体
+  const timeWeight = pick([500, 600, 600]);
+  const timeSize = pick(['14px', '15px', '15px']);
+
+  // 手机高度小幅随机
+  const phoneHeight = Math.round(790 + Math.random() * 30); // 790–820
+
+  // 底部栏：35% 小白条, 30% 导航栏, 35% 无
+  const bottomBarRand = Math.random();
+  let bottomBarType, navbarStyle, indicatorWidth;
+  if (bottomBarRand < 0.35) {
+    bottomBarType = 'indicator';
+    indicatorWidth = Math.round(100 + Math.random() * 40); // 100–140px
+    navbarStyle = 0;
+  } else if (bottomBarRand < 0.65) {
+    bottomBarType = 'navbar';
+    navbarStyle = pick([1, 2, 3]); // 3种导航栏样式
+    indicatorWidth = Math.round(100 + Math.random() * 40);
+    } else {
+    bottomBarType = 'none';
+    navbarStyle = 0;
+    indicatorWidth = 0;
+  }
+
+  return { signalBars, barWidth, barGap, barRadius, networkType, carrierPosition, carrier, batteryShowBorder, batteryPercentPos, batteryPercentSign, showWifi, timeWeight, timeSize, phoneHeight, bottomBarType, navbarStyle, indicatorWidth };
+};
+
+const currentPhone = ref(randomPhone());
+const signalStrength = ref(4); // 1-4 格信号，控制哪些条亮/暗
+
 // 地图背景随机偏移
 const mapOffsetX = ref(0);
 const mapOffsetY = ref(0);
@@ -119,7 +179,8 @@ const routeEnd = computed(() => routePoints.value[routePoints.value.length - 1])
 // 电池图标内部填充宽度
 const batteryFillWidth = computed(() => {
   const clamped = Math.max(0, Math.min(100, currentBattery.value));
-  return (clamped / 100) * 20;
+  const maxWidth = currentPhone.value.batteryShowBorder ? 20 : 23;
+  return (clamped / 100) * maxWidth;
 });
 
 // 电池颜色
@@ -127,6 +188,19 @@ const batteryColor = computed(() => {
   if (currentBattery.value <= 20) return '#FF3B30';
   if (currentBattery.value <= 50) return '#FF9500';
   return '#34C759';
+});
+
+// 电池百分比文本
+const batteryPercentText = computed(() => {
+  const val = currentBattery.value;
+  return currentPhone.value.batteryPercentSign ? `${val}%` : `${val}`;
+});
+
+// 底部栏高度（用于偏移 bottom-action）
+const bottomBarHeight = computed(() => {
+  if (currentPhone.value.bottomBarType === 'indicator') return 20;
+  if (currentPhone.value.bottomBarType === 'navbar') return 36;
+  return 0;
 });
 
 // --- New Logic Below ---
@@ -232,7 +306,13 @@ const generateRecord = async () => {
   avgPower.value = Math.round(getRandom(150, 350)).toString();
   avgGroundContactTime.value = Math.round(getRandom(200, 300)).toString();
   currentBattery.value = Math.round(getRandom(5, 100));
-  
+
+  // 随机组合手机状态栏样式
+  currentPhone.value = randomPhone();
+  // 信号强度：70% 满格，20% 三格，10% 两格
+  const rand = Math.random();
+  signalStrength.value = rand < 0.7 ? 4 : (rand < 0.9 ? 3 : 2);
+
   mapOffsetX.value = Math.round(Math.random() * 40 - 20);
   mapOffsetY.value = Math.round(Math.random() * 40 - 20);
   routePoints.value = generateRoute();
@@ -340,41 +420,68 @@ onUnmounted(() => {
 
 <template>
   <div class="app-container">
-    <div class="main" ref="phoneRef">
+    <div class="main" ref="phoneRef" :style="{ height: currentPhone.phoneHeight + 'px' }">
       <!-- Loading overlay -->
       <div v-if="isGenerating" class="loading-overlay">
         <div class="loading-spinner"></div>
         <div class="loading-text">生成中...</div>
       </div>
       <div class="header">
-        <!-- 左侧：时间 -->
-        <div class="time">{{ currentTime }}</div>
+        <!-- 左侧：时间 + 可选运营商 -->
+        <div class="header-left">
+          <span class="time" :style="{ fontWeight: currentPhone.timeWeight, fontSize: currentPhone.timeSize }">{{ currentTime }}</span>
+          <span v-if="currentPhone.carrierPosition === 'left'" class="carrier-name">{{ currentPhone.carrier }}</span>
+        </div>
 
-        <!-- 右侧：网络 + 电量 -->
+        <!-- 右侧：信号 + 网络/WiFi + 电池 -->
         <div class="status-right">
-          <!-- 信号强度：满格4格 -->
-          <div class="signal-bars">
-            <div class="signal-bar" :style="{ height: '4px' }"></div>
-            <div class="signal-bar" :style="{ height: '7px' }"></div>
-            <div class="signal-bar" :style="{ height: '10px' }"></div>
-            <div class="signal-bar" :style="{ height: '13px' }"></div>
+          <!-- 信号强度条 -->
+          <div class="signal-bars" :style="{ gap: currentPhone.barGap + 'px' }">
+            <div v-for="(h, i) in currentPhone.signalBars" :key="i" class="signal-bar"
+                 :style="{
+                   height: h + 'px',
+                   width: currentPhone.barWidth + 'px',
+                   borderRadius: currentPhone.barRadius + 'px',
+                   opacity: i < signalStrength ? 1 : 0.3
+                 }"></div>
           </div>
 
-          <!-- 5G 标识 -->
-          <span class="network-type">5G</span>
+          <!-- WiFi 图标 -->
+          <svg v-if="currentPhone.showWifi" class="wifi-icon" width="15" height="12" viewBox="0 0 16 12" fill="#1d1d1f">
+            <path d="M8 11.5l-2.5-3c.7-.6 1.5-.9 2.5-.9s1.8.3 2.5.9L8 11.5z"/>
+            <path d="M3.7 6.3c1.1-1.1 2.6-1.8 4.3-1.8s3.2.7 4.3 1.8l-1.3 1.3c-.8-.8-1.8-1.2-3-1.2s-2.2.4-3 1.2L3.7 6.3z"/>
+            <path d="M1 4.2C2.7 2.5 5.2 1.4 8 1.4s5.3 1.1 7 2.8l-1.4 1.4C12.2 4.2 10.2 3.3 8 3.3S3.8 4.2 2.4 5.6L1 4.2z"/>
+          </svg>
+
+          <!-- 网络类型 (4G/5G) -->
+          <span v-if="currentPhone.networkType && !currentPhone.showWifi" class="network-type">{{ currentPhone.networkType }}</span>
 
           <!-- 电池图标 (SVG) -->
           <svg class="battery-icon" width="27" height="12" viewBox="0 0 27 12">
-            <!-- 电池外壳 -->
-            <rect x="0.5" y="0.5" width="23" height="11" rx="2.5" ry="2.5"
+            <!-- 电池外壳（有边框时显示） -->
+            <rect v-if="currentPhone.batteryShowBorder" x="0.5" y="0.5" width="23" height="11" rx="2.5" ry="2.5"
                   fill="none" stroke="#1d1d1f" stroke-width="1" opacity="0.35" />
             <!-- 电池正极凸起 -->
             <rect x="24.5" y="3.5" width="2" height="5" rx="1" ry="1"
                   fill="#1d1d1f" opacity="0.2" />
-            <!-- 电池填充 -->
-            <rect x="2" y="2" :width="batteryFillWidth" height="8" rx="1.5" ry="1.5"
+            <!-- 电池填充（有边框：内缩；无边框：撑满外壳区域） -->
+            <rect v-if="currentPhone.batteryShowBorder"
+                  x="2" y="2" :width="batteryFillWidth" height="8" rx="1.5" ry="1.5"
                   :fill="batteryColor" />
+            <rect v-else
+                  x="0.5" y="0.5" :width="batteryFillWidth" height="11" rx="2.5" ry="2.5"
+                  :fill="batteryColor" />
+            <!-- 百分比在电池内部 -->
+            <text v-if="currentPhone.batteryPercentPos === 'inside'"
+                  x="12" y="6" text-anchor="middle" dominant-baseline="central"
+                  fill="#1d1d1f" font-size="8" font-weight="600"
+                  font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif">
+              {{ batteryPercentText }}
+            </text>
           </svg>
+
+          <!-- 电池百分比在外部 -->
+          <span v-if="currentPhone.batteryPercentPos === 'outside'" class="battery-percent">{{ batteryPercentText }}</span>
         </div>
       </div>
       
@@ -528,7 +635,7 @@ onUnmounted(() => {
         </div>
         
         <!-- Bottom Action Button -->
-        <div class="bottom-action">
+        <div class="bottom-action" :style="{ bottom: bottomBarHeight + 'px' }">
           <button class="action-btn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="white" style="margin-right: 6px; transform: rotate(-45deg);">
               <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
@@ -536,6 +643,29 @@ onUnmounted(() => {
             发布动态到社区
           </button>
         </div>
+      </div>
+
+      <!-- 底部栏：小白条 / 导航栏 / 无 -->
+      <div v-if="currentPhone.bottomBarType === 'indicator'" class="bottom-bar-area">
+        <div class="home-indicator" :style="{ width: currentPhone.indicatorWidth + 'px' }"></div>
+      </div>
+      <div v-else-if="currentPhone.bottomBarType === 'navbar'" class="bottom-bar-area bottom-navbar">
+        <!-- 样式1：经典三键 ◁ ○ □ -->
+        <template v-if="currentPhone.navbarStyle === 1">
+          <svg width="16" height="16" viewBox="0 0 24 24"><polygon points="15,5 15,19 5,12" fill="#999"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="#999" stroke-width="1.8"/></svg>
+          <svg width="16" height="16" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="none" stroke="#999" stroke-width="1.8"/></svg>
+        </template>
+        <!-- 样式2：短横线三键 — ○ — -->
+        <template v-if="currentPhone.navbarStyle === 2">
+          <div class="navbar-line"></div>
+          <svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7" fill="none" stroke="#999" stroke-width="1.8"/></svg>
+          <div class="navbar-line"></div>
+        </template>
+        <!-- 样式3：手势导航条 -->
+        <template v-if="currentPhone.navbarStyle === 3">
+          <div class="nav-pill" :style="{ width: currentPhone.indicatorWidth + 'px' }"></div>
+        </template>
       </div>
     </div>
 
@@ -820,7 +950,6 @@ onUnmounted(() => {
 
 .main {
   width: 400px;
-  height: 800px;
   border: 1px solid #e0e0e0;
   border-radius: 0;
   overflow: hidden;
@@ -835,7 +964,7 @@ onUnmounted(() => {
 .header {
   height: 44px;
   flex-shrink: 0;
-  background: #FFFFFF; /* Match page background */
+  background: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -844,9 +973,23 @@ onUnmounted(() => {
   z-index: 10;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .time {
   font-size: 15px;
   font-weight: 600;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  color: #1d1d1f;
+  letter-spacing: 0.2px;
+}
+
+.carrier-name {
+  font-size: 12px;
+  font-weight: 400;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
   color: #1d1d1f;
   letter-spacing: 0.2px;
@@ -891,6 +1034,11 @@ onUnmounted(() => {
 
 /* 电池图标 */
 .battery-icon {
+  display: block;
+}
+
+/* WiFi 图标 */
+.wifi-icon {
   display: block;
 }
 
@@ -1178,5 +1326,48 @@ onUnmounted(() => {
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(36, 199, 137, 0.3);
+}
+
+/* 底部栏通用容器 */
+.bottom-bar-area {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFFFFF;
+  z-index: 11;
+}
+
+/* 小白条 (iOS home indicator) */
+.home-indicator {
+  height: 5px;
+  background: #1d1d1f;
+  border-radius: 3px;
+  margin: 8px 0;
+}
+
+/* 导航栏 */
+.bottom-navbar {
+  height: 36px;
+  gap: 80px;
+}
+
+/* 导航栏样式2的短横线 */
+.navbar-line {
+  width: 14px;
+  height: 2px;
+  background: #999;
+  border-radius: 1px;
+}
+
+/* 导航栏样式3的手势条 */
+.nav-pill {
+  height: 4px;
+  background: #1d1d1f;
+  border-radius: 2px;
+  opacity: 0.4;
 }
 </style>
