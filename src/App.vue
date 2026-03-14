@@ -244,7 +244,7 @@ const generateRecord = async () => {
 
   try {
     const isPast = new Date(apiDate) < new Date(new Date().setHours(0,0,0,0));
-    const baseUrl = isPast ? 'https://archive-api.open-meteo.com/v1/archive' : 'https://api.open-meteo.com/v1/forecast';
+    const baseUrl = isPast ? '/weather/v1/archive' : '/weather/v1/forecast';
     const url = `${baseUrl}?latitude=39.9042&longitude=116.4074&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=Asia/Shanghai&start_date=${apiDate}&end_date=${apiDate}`;
     
     const res = await fetch(url);
