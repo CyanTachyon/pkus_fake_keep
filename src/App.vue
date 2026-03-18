@@ -18,6 +18,9 @@ const distMax = ref(2.5);
 const paceMin = ref(4);
 const paceMax = ref(8);
 const city = ref('北京市');
+const weatherMode = ref('auto'); // 'auto' | 'manual'
+const manualWeather = ref('晴');
+const manualTemperature = ref('25°C');
 
 // App State Refs (Generated/Real-time)
 const currentTime = ref('17:00');
@@ -322,24 +325,29 @@ const generateRecord = async () => {
     Math.random() * Math.PI * 2,
   ];
 
-  try {
-    const isPast = new Date(apiDate) < new Date(new Date().setHours(0,0,0,0));
-    const baseUrl = isPast ? '/weather/v1/archive' : '/weather/v1/era5';
-    const url = `${baseUrl}?latitude=39.9042&longitude=116.4074&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=Asia/Shanghai&start_date=${apiDate}&end_date=${apiDate}`;
-    
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data && data.daily) {
-      const code = data.daily.weathercode[0];
-      const tMax = data.daily.temperature_2m_max[0];
-      const tMin = data.daily.temperature_2m_min[0];
-      weather.value = mapWeatherCode(code);
-      temperature.value = `${Math.round((tMax + tMin) / 2)}°C`;
+  if (weatherMode.value === 'manual') {
+    weather.value = manualWeather.value || '晴';
+    temperature.value = manualTemperature.value || '25°C';
+  } else {
+    try {
+      const isPast = new Date(apiDate) < new Date(new Date().setHours(0,0,0,0));
+      const baseUrl = isPast ? '/weather/v1/archive' : '/weather/v1/era5';
+      const url = `${baseUrl}?latitude=39.9042&longitude=116.4074&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=Asia/Shanghai&start_date=${apiDate}&end_date=${apiDate}`;
+      
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data && data.daily) {
+        const code = data.daily.weathercode[0];
+        const tMax = data.daily.temperature_2m_max[0];
+        const tMin = data.daily.temperature_2m_min[0];
+        weather.value = mapWeatherCode(code);
+        temperature.value = `${Math.round((tMax + tMin) / 2)}°C`;
+      }
+    } catch (err) {
+      console.error("Weather API failed:", err);
+      weather.value = '晴';
+      temperature.value = '25°C';
     }
-  } catch (err) {
-    console.error("Weather API failed:", err);
-    weather.value = '晴';
-    temperature.value = '25°C';
   }
   isGenerating.value = false;
 };
@@ -355,7 +363,10 @@ const saveConfig = () => {
     distMax: distMax.value,
     paceMin: paceMin.value,
     paceMax: paceMax.value,
-    city: city.value
+    city: city.value,
+    weatherMode: weatherMode.value,
+    manualWeather: manualWeather.value,
+    manualTemperature: manualTemperature.value,
   };
   localStorage.setItem('keep_fake_config', JSON.stringify(cfg));
 };
@@ -375,11 +386,14 @@ const loadConfig = () => {
       if (cfg.paceMin !== undefined) paceMin.value = cfg.paceMin;
       if (cfg.paceMax !== undefined) paceMax.value = cfg.paceMax;
       if (cfg.city !== undefined) city.value = cfg.city;
+      if (cfg.weatherMode !== undefined) weatherMode.value = cfg.weatherMode;
+      if (cfg.manualWeather !== undefined) manualWeather.value = cfg.manualWeather;
+      if (cfg.manualTemperature !== undefined) manualTemperature.value = cfg.manualTemperature;
     } catch (e) {}
   }
 };
 
-watch([avatarImage, username, timeMode, customDate, customTime, distMin, distMax, paceMin, paceMax, city], () => {
+watch([avatarImage, username, timeMode, customDate, customTime, distMin, distMax, paceMin, paceMax, city, weatherMode, manualWeather, manualTemperature], () => {
   saveConfig();
 }, { deep: true });
 
@@ -692,6 +706,20 @@ onUnmounted(() => {
       <div class="config-group">
         <label>城市</label>
         <input type="text" v-model="city" />
+      </div>
+      <div class="config-group">
+        <label>天气</label>
+        <div class="radio-group">
+          <label><input type="radio" value="auto" v-model="weatherMode" /> 自动获取</label>
+          <label><input type="radio" value="manual" v-model="weatherMode" /> 手动输入</label>
+        </div>
+      </div>
+      <div class="config-group" v-if="weatherMode === 'manual'">
+        <label>手动天气</label>
+        <div class="split-inputs">
+          <input type="text" v-model="manualWeather" placeholder="天气（如 晴/多云/雨）" />
+          <input type="text" v-model="manualTemperature" placeholder="温度（如 25°C）" />
+        </div>
       </div>
       <div class="config-group">
         <label>时间模式</label>
